@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 사회 이슈 빙고</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+    background: #f0f4f8;
+    min-height: 100vh;
+    color: #0a2240;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+  }
+
+  .logo {
+    width: min(70vw, 320px);
+    margin-bottom: 12px;
+  }
+
+  h1 {
+    font-size: 1.8rem;
+    margin-bottom: 4px;
+    color: #0a2240;
+    text-align: center;
+    letter-spacing: -0.5px;
+  }
+
+  .subtitle {
+    font-size: 0.9rem;
+    color: #5a7a9a;
+    margin-bottom: 18px;
+    text-align: center;
+  }
+
+  /* 상단 컨트롤 */
+  .controls {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-bottom: 16px;
+  }
+
+  .controls button {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+
+  .controls button:hover { transform: translateY(-2px); box-shadow: 0 4px 15px rgba(10,34,64,0.15); }
+
+  .btn-start { background: #0a2240; color: #fff; }
+  .btn-reset { background: #c0392b; color: #fff; }
+  .btn-shuffle { background: #3498db; color: #fff; }
+
+  .timer-display {
+    font-size: 1.6rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    min-width: 90px;
+    text-align: center;
+    color: #0a2240;
+  }
+
+  .timer-display.warning { color: #c0392b; animation: pulse 1s infinite; }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+
+  /* 빙고 현황 */
+  .status-bar {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 14px;
+    font-size: 1rem;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .status-bar .bingo-count {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: #2980b9;
+  }
+
+  .status-bar .filled-count {
+    color: #5a7a9a;
+  }
+
+  /* 빙고 보드 */
+  .board {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 6px;
+    width: min(92vw, 560px);
+    margin-bottom: 20px;
+  }
+
+  .cell {
+    aspect-ratio: 1;
+    background: #fff;
+    border: 2px solid #d0dbe6;
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 6px;
+    cursor: pointer;
+    transition: all 0.25s;
+    position: relative;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    box-shadow: 0 1px 3px rgba(10,34,64,0.06);
+  }
+
+  .cell:hover { background: #e8f0fe; transform: scale(1.03); border-color: #3498db; }
+
+  .cell .keyword {
+    font-size: clamp(0.65rem, 2.2vw, 0.88rem);
+    font-weight: 600;
+    line-height: 1.3;
+    word-break: keep-all;
+    color: #0a2240;
+  }
+
+  .cell .name-input {
+    position: absolute;
+    bottom: 4px;
+    font-size: 0.6rem;
+    color: #2980b9;
+    max-width: 90%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .cell.filled {
+    background: linear-gradient(135deg, #e8f4fd, #d6eaf8);
+    border-color: #3498db;
+  }
+
+  .cell.filled .keyword { color: #0a2240; }
+
+  .cell.bingo-line {
+    background: linear-gradient(135deg, #0a2240, #1a4a7a);
+    border-color: #0a2240;
+    animation: glow 1.5s ease-in-out infinite alternate;
+  }
+
+  .cell.bingo-line .keyword { color: #fff; }
+  .cell.bingo-line .name-input { color: #7ec8e3; }
+
+  @keyframes glow {
+    from { box-shadow: 0 0 5px rgba(52,152,219,0.3); }
+    to { box-shadow: 0 0 20px rgba(52,152,219,0.5); }
+  }
+
+  /* 모달 */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(10,34,64,0.5);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .modal-overlay.show { display: flex; }
+
+  .modal {
+    background: #fff;
+    border-radius: 16px;
+    padding: 28px;
+    width: min(88vw, 360px);
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(10,34,64,0.25);
+  }
+
+  .modal h2 { margin-bottom: 12px; font-size: 1.2rem; color: #0a2240; }
+
+  .modal input {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid #d0dbe6;
+    border-radius: 8px;
+    background: #f7f9fc;
+    color: #0a2240;
+    font-size: 1rem;
+    outline: none;
+    margin-bottom: 14px;
+  }
+
+  .modal input:focus { border-color: #3498db; }
+
+  .modal-buttons { display: flex; gap: 8px; justify-content: center; }
+
+  .modal-buttons button {
+    padding: 10px 24px;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .modal-buttons .btn-confirm { background: #0a2240; color: #fff; }
+  .modal-buttons .btn-cancel { background: #e8edf2; color: #5a7a9a; }
+  .modal-buttons .btn-unfill { background: #c0392b; color: #fff; }
+
+  /* 빙고 달성 축하 */
+  .celebration {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    pointer-events: none;
+    align-items: center;
+    justify-content: center;
+    background: rgba(10,34,64,0.3);
+  }
+
+  .celebration.show { display: flex; }
+
+  .celebration .message {
+    font-size: 3rem;
+    font-weight: 900;
+    color: #fff;
+    background: linear-gradient(135deg, #0a2240, #2980b9, #0a2240);
+    background-size: 200%;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: shimmer 1.5s infinite;
+    text-align: center;
+    padding: 30px 50px;
+    border-radius: 20px;
+  }
+
+  @keyframes shimmer {
+    0% { background-position: 0% 50%; }
+    100% { background-position: 200% 50%; }
+  }
+
+  /* 규칙 안내 */
+  .rules {
+    max-width: 560px;
+    background: #fff;
+    border: 1px solid #d0dbe6;
+    border-radius: 12px;
+    padding: 16px 20px;
+    font-size: 0.85rem;
+    line-height: 1.7;
+    color: #5a7a9a;
+    box-shadow: 0 1px 3px rgba(10,34,64,0.06);
+  }
+
+  .rules strong { color: #0a2240; }
+</style>
+</head>
+<body>
+
+<img src="logo.png" alt="대통령직속 국가인공지능전략위원회" class="logo">
+
+<h1>AI 사회 이슈 빙고</h1>
+<p class="subtitle">사회분과 워크숍 Ice-breaking Game</p>
+
+<div class="controls">
+  <button class="btn-shuffle" onclick="shuffleBoard()">셔플</button>
+  <button class="btn-start" id="timerBtn" onclick="toggleTimer()">타이머 시작</button>
+  <span class="timer-display" id="timerDisplay">18:00</span>
+  <button class="btn-reset" onclick="resetGame()">초기화</button>
+</div>
+
+<div class="status-bar">
+  <span>빙고: <span class="bingo-count" id="bingoCount">0</span></span>
+  <span class="filled-count">채운 칸: <span id="filledCount">0</span>/25</span>
+</div>
+
+<div class="board" id="board"></div>
+
+<div class="rules">
+  <strong>게임 규칙</strong><br>
+  1. 칸을 터치하면 대화 상대의 이름을 입력할 수 있습니다.<br>
+  2. 해당 이슈에 대해 <strong>30~60초 대화</strong> 후 이름을 적어주세요.<br>
+  3. 한 사람당 <strong>최대 2칸</strong>까지만 이름을 받을 수 있습니다.<br>
+  4. 가로/세로/대각선 한 줄을 완성하면 <strong>1빙고</strong>!<br>
+  5. 목표: <strong>2빙고</strong> 이상 달성하기
+</div>
+
+<!-- 이름 입력 모달 -->
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <h2 id="modalTitle">키워드</h2>
+    <p style="font-size:0.85rem; color:#5a7a9a; margin-bottom:12px;">이 이슈에 대해 대화한 분의 이름을 적어주세요</p>
+    <input type="text" id="nameInput" placeholder="이름 입력" maxlength="20" autocomplete="off">
+    <div class="modal-buttons">
+      <button class="btn-cancel" onclick="closeModal()">취소</button>
+      <button class="btn-unfill" id="unfillBtn" onclick="unfillCell()" style="display:none;">지우기</button>
+      <button class="btn-confirm" onclick="confirmName()">확인</button>
+    </div>
+  </div>
+</div>
+
+<!-- 빙고 축하 -->
+<div class="celebration" id="celebration">
+  <div class="message" id="celebrationMsg"></div>
+</div>
+
+<script>
+const KEYWORDS = [
+  "알고리즘 편향/차별", "디지털 격차", "딥페이크·허위정보", "저작권/학습데이터",
+  "개인정보·프라이버시", "데이터 거버넌스", "데이터 주권", "플랫폼 독점",
+  "공공부문 AI 도입", "AI 책임소재", "알고리즘 감사", "투명성/설명가능성",
+  "AI 윤리 가이드", "노동 전환/재교육", "직무 대체 vs 보완", "교육혁신",
+  "의료/복지 AI", "취약계층 보호", "아동·청소년 보호", "국방/치안 AI",
+  "국제 규범/협약", "지역균형/지방 AI", "탄소/에너지와 AI", "창작/문화산업 영향",
+  "AI 리터러시"
+];
+
+let board = [];
+let currentCell = null;
+let timerInterval = null;
+let timerSeconds = 18 * 60;
+let timerRunning = false;
+let prevBingoCount = 0;
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function initBoard(keywords) {
+  board = keywords.map(k => ({ keyword: k, name: '', filled: false }));
+  renderBoard();
+}
+
+function renderBoard() {
+  const el = document.getElementById('board');
+  el.innerHTML = '';
+  board.forEach((cell, i) => {
+    const div = document.createElement('div');
+    div.className = 'cell' + (cell.filled ? ' filled' : '');
+    div.innerHTML = `
+      <span class="keyword">${cell.keyword}</span>
+      ${cell.name ? `<span class="name-input">${cell.name}</span>` : ''}
+    `;
+    div.onclick = () => openModal(i);
+    el.appendChild(div);
+  });
+  updateStatus();
+}
+
+function openModal(index) {
+  currentCell = index;
+  const cell = board[index];
+  document.getElementById('modalTitle').textContent = cell.keyword;
+  document.getElementById('nameInput').value = cell.name || '';
+  document.getElementById('unfillBtn').style.display = cell.filled ? 'inline-block' : 'none';
+  document.getElementById('modal').classList.add('show');
+  setTimeout(() => document.getElementById('nameInput').focus(), 100);
+}
+
+function closeModal() {
+  document.getElementById('modal').classList.remove('show');
+  currentCell = null;
+}
+
+function confirmName() {
+  const name = document.getElementById('nameInput').value.trim();
+  if (!name) return;
+
+  const sameNameCount = board.filter((c, i) => c.filled && c.name === name && i !== currentCell).length;
+  if (sameNameCount >= 2) {
+    alert(`"${name}" 님은 이미 2칸에 등록되어 있습니다!\n한 사람당 최대 2칸까지만 가능합니다.`);
+    return;
+  }
+
+  board[currentCell].name = name;
+  board[currentCell].filled = true;
+  closeModal();
+  renderBoard();
+  checkBingo();
+}
+
+function unfillCell() {
+  board[currentCell].name = '';
+  board[currentCell].filled = false;
+  closeModal();
+  renderBoard();
+  checkBingo();
+}
+
+function checkBingo() {
+  const lines = [];
+  for (let r = 0; r < 5; r++) {
+    lines.push([r*5, r*5+1, r*5+2, r*5+3, r*5+4]);
+  }
+  for (let c = 0; c < 5; c++) {
+    lines.push([c, c+5, c+10, c+15, c+20]);
+  }
+  lines.push([0, 6, 12, 18, 24]);
+  lines.push([4, 8, 12, 16, 20]);
+
+  const completedLines = [];
+  const bingoCells = new Set();
+
+  lines.forEach(line => {
+    if (line.every(i => board[i].filled)) {
+      completedLines.push(line);
+      line.forEach(i => bingoCells.add(i));
+    }
+  });
+
+  document.querySelectorAll('.cell').forEach((el, i) => {
+    el.classList.toggle('bingo-line', bingoCells.has(i));
+  });
+
+  const count = completedLines.length;
+  document.getElementById('bingoCount').textContent = count;
+
+  if (count > prevBingoCount && count > 0) {
+    showCelebration(count);
+  }
+  prevBingoCount = count;
+}
+
+function updateStatus() {
+  const filled = board.filter(c => c.filled).length;
+  document.getElementById('filledCount').textContent = filled;
+}
+
+function showCelebration(count) {
+  const el = document.getElementById('celebration');
+  const msg = document.getElementById('celebrationMsg');
+  const texts = {
+    1: '1 빙고!',
+    2: '2 빙고! 목표 달성!',
+    3: '3 빙고! 대단해요!',
+    4: '4 빙고! 놀라워요!',
+    5: '5 빙고!!',
+  };
+  msg.textContent = count >= 5 ? `${count} 빙고!! 완벽!` : (texts[count] || `${count} 빙고!`);
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2500);
+}
+
+function shuffleBoard() {
+  const shuffled = shuffle(KEYWORDS);
+  initBoard(shuffled);
+  prevBingoCount = 0;
+}
+
+function resetGame() {
+  if (board.some(c => c.filled)) {
+    if (!confirm('모든 진행 상황이 초기화됩니다. 계속할까요?')) return;
+  }
+  board.forEach(c => { c.name = ''; c.filled = false; });
+  prevBingoCount = 0;
+  stopTimer();
+  timerSeconds = 18 * 60;
+  updateTimerDisplay();
+  renderBoard();
+}
+
+function toggleTimer() {
+  if (timerRunning) {
+    stopTimer();
+  } else {
+    startTimer();
+  }
+}
+
+function startTimer() {
+  timerRunning = true;
+  document.getElementById('timerBtn').textContent = '일시정지';
+  document.getElementById('timerBtn').className = 'btn-reset';
+  timerInterval = setInterval(() => {
+    timerSeconds--;
+    if (timerSeconds <= 0) {
+      timerSeconds = 0;
+      stopTimer();
+      alert('시간 종료! 빙고 결과를 확인해주세요.');
+    }
+    updateTimerDisplay();
+  }, 1000);
+}
+
+function stopTimer() {
+  timerRunning = false;
+  clearInterval(timerInterval);
+  document.getElementById('timerBtn').textContent = '타이머 시작';
+  document.getElementById('timerBtn').className = 'btn-start';
+}
+
+function updateTimerDisplay() {
+  const m = Math.floor(timerSeconds / 60);
+  const s = timerSeconds % 60;
+  const display = document.getElementById('timerDisplay');
+  display.textContent = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  display.classList.toggle('warning', timerSeconds <= 120);
+}
+
+document.getElementById('nameInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') confirmName();
+  if (e.key === 'Escape') closeModal();
+});
+
+document.getElementById('modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('modal')) closeModal();
+});
+
+initBoard(shuffle(KEYWORDS));
+</script>
+</body>
+</html>
